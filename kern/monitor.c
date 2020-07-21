@@ -58,6 +58,27 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
+	// 通过debug，发现有以下规律：
+	// 第i级递归有：
+	// $ebp[i] = $ebp + (i+1)*0x20;
+	// $eip[i] = $ebp[i] + 0x4;
+	// $args[i][j] = $eip[i] + (j+1)*0x4;
+	// 其中，i=0,1,2,3,4,5; j=0,1,2,3,4
+	// args[i][j] 代表第i级递归的第j个参数
+	uint32_t ebp=0;
+	
+	// 获取当前ebp寄存器低值
+	__asm__("movl %%ebp, %0" : "=r" (ebp));
+	
+	cprintf("Stack backtrace:\n");	
+	int i;
+	uint32_t *ptr = (uint32_t *)ebp+8;
+	for (i=0;i<=5;i++)
+	{
+		cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n",
+				ptr[0],ptr[1],ptr[2],ptr[3],ptr[4],ptr[5],ptr[6]);
+		ptr =(uint32_t *)ptr[0];
+	}
 	return 0;
 }
 
