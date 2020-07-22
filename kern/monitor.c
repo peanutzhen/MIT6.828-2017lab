@@ -21,9 +21,11 @@ struct Command {
 	int (*func)(int argc, char** argv, struct Trapframe* tf);
 };
 
+// 增加backtrace命令
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "Display stack frame of test_backtrace function.", mon_backtrace}
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -72,9 +74,13 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	
 	cprintf("Stack backtrace:\n");	
 	int i;
-	uint32_t *ptr = (uint32_t *)ebp+8;
+	uint32_t *ptr = (uint32_t *) *((uint32_t *)ebp);
+	// ptr 指向上一次函数的ebp值
 	for (i=0;i<=5;i++)
 	{
+		// 是的，我知道你想说为什么不用循环依次输出这些参数
+		// 实际上，我一开始就是那样实现的，但是不知道是不是编译器的问题
+		// 汇编出死循环给我，我都懵逼了。。
 		cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n",
 				ptr[0],ptr[1],ptr[2],ptr[3],ptr[4],ptr[5],ptr[6]);
 		ptr =(uint32_t *)ptr[0];
