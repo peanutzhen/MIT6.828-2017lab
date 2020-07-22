@@ -1,3 +1,7 @@
+# custom ignore
+/.DS_Store
+
+# default ignore
 /obj
 /jos.in
 /jos.log
