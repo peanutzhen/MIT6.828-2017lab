@@ -68,21 +68,32 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	// 其中，i=0,1,2,3,4,5; j=0,1,2,3,4
 	// args[i][j] 代表第i级递归的第j个参数
 	uint32_t ebp=0;
+	struct Eipdebuginfo info;	// 定义在kern/kdebug.h	
 	
 	// 获取当前ebp寄存器低值
 	__asm__("movl %%ebp, %0" : "=r" (ebp));
 	
 	cprintf("Stack backtrace:\n");	
 	int i;
-	uint32_t *ptr = (uint32_t *) *((uint32_t *)ebp);
+	uint32_t *ptr = (uint32_t *)ebp;
 	// ptr 指向上一次函数的ebp值
-	for (i=0;i<=5;i++)
+	for (i=0;i<=6;i++)
 	{
 		// 是的，我知道你想说为什么不用循环依次输出这些参数
 		// 实际上，我一开始就是那样实现的，但是不知道是不是编译器的问题
 		// 汇编出死循环给我，我都懵逼了。。
 		cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n",
 				ptr[0],ptr[1],ptr[2],ptr[3],ptr[4],ptr[5],ptr[6]);
+		if (debuginfo_eip(ptr[1], &info) != -1){
+			cprintf("         %s:%d: %.*s+%d\n",
+					info.eip_file,
+					info.eip_line,
+					info.eip_fn_namelen,
+					info.eip_fn_name,
+					ptr[1]-info.eip_fn_addr);
+		}
+		else
+			cprintf("Unknown failed.\n");
 		ptr =(uint32_t *)ptr[0];
 	}
 	return 0;
