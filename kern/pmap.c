@@ -105,7 +105,7 @@ boot_alloc(uint32_t n)
 	if (n > 0){
 		result = nextfree;			// 返回值返回当前空闲起始区域指针
 		nextfree += n;				// 更新指针
-		if ((uint32_t)nextfree > 0xffffffff)	// 内存溢出
+		if ((uint32_t)nextfree > 0xf0400000)	// 内存溢出,只映射了4MB
 			panic("Out of memoty!\n");
 		nextfree = ROUNDUP((char *) nextfree, PGSIZE); // 对齐4096B
 		return result;
