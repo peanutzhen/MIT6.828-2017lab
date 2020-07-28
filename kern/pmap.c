@@ -372,7 +372,30 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	return NULL;
+	// 使用 mmu.h 定义好的宏与函数
+	uintptr_t pd_index = PDX(va);
+	uintptr_t pt_index = PTX(va);
+	
+	pte_t *pgtab = NULL;
+	// PDE 有效？即有对应的Page table吗？
+	if (pgdir[pd_index] & PTE_P)
+		pgtab = (pte_t *)KADDR(PTE_ADDR(pgdir[pd_index]));
+	else if(create){
+		struct PageInfo *pp = page_alloc(ALLOC_ZERO);
+		if(pp){
+			pp->pp_ref++;
+			// 修改Page dir该项的地址位
+			pgdir[pd_index] = page2pa(pp);
+			// 设置为存在且可写
+			pgdir[pd_index] |= (PTE_P | PTE_W | PTE_U);
+			pgtab = (pte_t *)page2kva(pp);
+		}
+		else
+			return NULL;
+	}
+	else
+		return NULL;
+	return pgtab + pt_index;
 }
 
 //
@@ -390,6 +413,18 @@ static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
+	size_t i;
+	size_t end = size >> PGSHIFT;	// Size是PGSIZE的倍数
+	pte_t *pte_pointer = NULL;
+	for (i = 0; i < end; i++) {
+		pte_pointer = pgdir_walk(pgdir, (void *)va, 1);	// 1 代表创建page table
+		// 现在设置映射地址，访问权限
+		*pte_pointer |= (pa & ~0xFFF);			// 设置 PPN
+		*pte_pointer |= (perm | PTE_P);			// 设置 Permission
+		// 现在更新 va pa，使其指向下一页
+		va += PGSIZE;
+		pa += PGSIZE;
+	}
 }
 
 //
@@ -421,7 +456,18 @@ int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
 	// Fill this function in
-	return 0;
+	pte_t *pte_pointer = pgdir_walk(pgdir, va, 1);
+	if (pte_pointer){	// Allocated succ or just find it.
+		pp->pp_ref++;
+		if ((*pte_pointer) & PTE_P){	// va 已经有映射了
+			page_remove(pgdir, va);
+			tlb_invalidate(pgdir, va);
+		}
+		*pte_pointer = page2pa(pp) | perm | PTE_P;	// 设置 PPN和权限
+		return 0;
+	}
+	else				// Out of memory
+		return -E_NO_MEM;
 }
 
 //
@@ -439,6 +485,13 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	// Fill this function in
+	pte_t *pte_pointer = pgdir_walk(pgdir, va, 0);
+	// pte_p必须不为NULL， 且存在位必须为1，才说明mapped
+	if (pte_pointer && ((*pte_pointer) & PTE_P)) {
+		if (pte_store)
+			*pte_store = pte_pointer;
+		return pa2page(PTE_ADDR(*pte_pointer));
+	}
 	return NULL;
 }
 
@@ -461,6 +514,13 @@ void
 page_remove(pde_t *pgdir, void *va)
 {
 	// Fill this function in
+	pte_t *pte_store;	// 存放查询va后的pte地址
+	struct PageInfo *pp = page_lookup(pgdir, va, &pte_store);
+	if (pp){
+		page_decref(pp);			// ref-- and if ref ==0, free it.
+		*pte_store = 0; 			// set va's pte to 0
+		tlb_invalidate(pgdir, va); 	// TLB invalidated.
+	}
 }
 
 //

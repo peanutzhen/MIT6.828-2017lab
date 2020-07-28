@@ -49,7 +49,7 @@ bootmain(void)
 	// 第二个扇区的0x1000个字节偏移量（即4096B），即第10个扇区sector 9
 	// 那么，这里读4096B，就是讲磁头停留在第一个将要被read的程序段，减少
 	// 寻道时间。当然，这只是我的猜想。
-	readseg((uint32_t) ELFHDR, 96, 0);
+	readseg((uint32_t) ELFHDR, 4096, 0);
 
 	// is this a valid ELF?
 	if (ELFHDR->e_magic != ELF_MAGIC)
