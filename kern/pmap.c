@@ -184,6 +184,10 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
+	// 由于我们要将 VA[UPAGES, UVPT]映射到pages的物理地址空间去
+	// 用boot_map_region是最优雅的实现方式
+	size_t pages_size = ROUNDUP(npages*sizeof(struct PageInfo), PGSIZE); 
+	boot_map_region(kern_pgdir, UPAGES, pages_size, PADDR(pages), PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -196,7 +200,14 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
-
+	// 只映射注释说的 backed部分即可，not backed不要映射，使其对应存在位为0
+	// 这样访问就会跑出缺页中断错误
+	boot_map_region(kern_pgdir,
+					KSTACKTOP-KSTKSIZE, 
+					KSTKSIZE, 
+					PADDR(bootstack), 
+					PTE_W
+					);
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
 	// Ie.  the VA range [KERNBASE, 2^32) should map to
@@ -205,7 +216,14 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
-
+	// 为了对应物理内存可能不足的情况，作者将boot_map_region的循环次数限制
+	// 在一定在npages的次数内。
+	boot_map_region(kern_pgdir,
+					KERNBASE,
+					0xFFFFFFFF-KERNBASE,
+					0x0,
+					PTE_W
+					);
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
 
@@ -269,7 +287,7 @@ page_init(void)
 	// 从0x000A 0000 ~ pages的最后一项，刚好是一个连续被分配的页
 	// 即IO hole ～ 内核 ～ 页数据结构
 	size_t FPAGE_IOHOLE = PGNUM(0x0A0000);
-	size_t LPAGE_PAGES = PGNUM(PADDR(boot_alloc(0)));
+	size_t LPAGE_PAGES = PGNUM(PADDR(boot_alloc(0))) - 1;
 	// 终于知道n == 0的作用了哈哈
 
 	size_t i;
