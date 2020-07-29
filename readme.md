@@ -8,6 +8,7 @@
 
 1. [实验环境的搭建](https://zhuanlan.zhihu.com/p/161202840)
 2. [Lab1](https://zhuanlan.zhihu.com/p/162992417)
+3. [Lab2](https://zhuanlan.zhihu.com/p/165104094)
 
 ## 使用教程
 
