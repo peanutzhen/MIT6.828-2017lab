@@ -64,8 +64,9 @@ stab_binsearch(const struct Stab *stabs, int *region_left, int *region_right,
 
 	while (l <= r) {
 		int true_m = (l + r) / 2, m = true_m;
-
+		// m只是用来作为下标的，如果不用true_m保留当前中值，也没什么，重新计		算一下就行。
 		// search for earliest stab with right type
+		// 先在左半边找有没有匹配type的符号
 		while (m >= l && stabs[m].n_type != type)
 			m--;
 		if (m < l) {	// no match in [l, m]
@@ -203,9 +204,18 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	//	There's a particular stabs type used for line numbers.
 	//	Look at the STABS documentation and <inc/stab.h> to find
 	//	which one.
+	
 	// Your code here.
-
-
+	// 通过查看stab.h，得知对应类型为N_SLINE
+	// 通过kdebug.h，得知info的成员信息
+	// desc  -> line_number
+	// value -> code_address
+	stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
+	if (lline <= rline)
+		info->eip_line = stabs[lline].n_desc;
+	else
+		return -1;
+	
 	// Search backwards from the line number for the relevant filename
 	// stab.
 	// We can't just use the "lfile" stab because inlined functions

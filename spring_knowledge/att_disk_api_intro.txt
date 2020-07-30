@@ -1,0 +1,32 @@
+以来内容来源：Operating system: Three easy pieces-chapter36
+
+Control Register:
+Address 0x3F6 = 0x08 (0000 1RE0): R=reset,
+E=0 means "enable interrupt"
+----------------------------------------------------------
+Command Block Registers:
+Address 0x1F0 = Data Port
+Address 0x1F1 = Error
+Address 0x1F2 = Sector Count
+Address 0x1F3 = LBA low byte
+Address 0x1F4 = LBA mid byte
+Address 0x1F5 = LBA hi byte
+Address 0x1F6 = 1B1D TOP4LBA: B=LBA, D=drive
+Address 0x1F7 = Command/status
+-----------------------------------------------------------
+Status Register (Address 0x1F7):
+ 7	   6     5     4   3    2    1     0
+BUSY READY FAULT SEEK DRQ CORR IDDEX ERROR
+-----------------------------------------------------------
+Error Register (Address 0x1F1): (check when ERROR==1)
+ 7   6   5   4   3   2     1    0
+BBK UNC MC IDNF MCR ABRT T0NF AMNF
+
+BBK = Bad Block
+UNC = Uncorrectable data error
+MC = Media Changed
+IDNF = ID mark Not Found
+MCR = Media Change Requested
+ABRT = Command aborted
+T0NF = Track 0 Not Found
+AMNF = Address Mark Not Found
