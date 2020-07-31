@@ -1,6 +1,7 @@
 # custom ignore
 .DS_Store 
 */.DS_Store 
+.vscode
 
 # default ignore
 /obj
