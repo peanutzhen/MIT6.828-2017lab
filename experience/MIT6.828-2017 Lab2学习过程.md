@@ -95,7 +95,7 @@
 
 通过稍微阅读了`intel `官方手册`，知道了段转换的细节了：
 
-1. 段寄存器用于保存`Selector`的值（`Selector`格式见`snapshots/lab2`）
+1. 段寄存器用于保存`Selector`的值（`Selector`格式见`spring_knowledges/lab2`）
 2. 用`Selector`定位`GDT`对应项，就可以知道所访问段的`Base Addr`,`Limit`,`各种权限`
 3. 通过`Baseaddr + 基址寄存器值`得到所谓的`Linear address`。
 
