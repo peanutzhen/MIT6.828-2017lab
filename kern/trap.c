@@ -65,7 +65,58 @@ trap_init(void)
 	extern struct Segdesc gdt[];
 
 	// LAB 3: Your code here.
-
+	// 声明在trapentry.S定义的function
+	// 为了获取其虚拟地址，那里的标号是global的
+	// 所以这里是弱声明，会指向强定义的虚拟地址。
+	// 如果不声明必报错，因为引用未知符号
+	void DIV();
+	void DEBUG();
+	void NMI();
+	void BREAKPOINT();
+	void OVERFLOW();
+	void OUT_BOUND();
+	void INVALID_OP();
+	void UNAVA_DEVICE();
+	void DOUBLE_FAULT();
+	void INVALID_TSS();
+	void SEG_MISS();
+	void STACKSEG_FAULT();
+	void NO_PERMISSION();
+	void PAGE_FAULT();
+	void MATH_FAULT();
+	void ALIGN_CHECK();
+	void MACHINE_CHECK();
+	void SIMD_EXC();
+	void SYSCALL();
+	void DEFAULT();
+	// 初始化IDT表，使用SETGATE宏
+	// 用 trap number索引interrupt/trap gate entry
+	// 由于trapentry.S属于kernel代码，所以段选择器应该为GD_KT
+	// type = 1 means exception
+	// tepe = 0 means interrupt
+	// 所有的trap(exception)的dpl应该 < 3 ; 中断看情况
+	// 像系统调用dpl就要为3，（用户程序可调用）
+	//		seg_desc	type  sel   off  dpl
+	SETGATE(idt[T_DIVIDE], 1, GD_KT, DIV, 0);
+	SETGATE(idt[T_DEBUG], 1, GD_KT, DEBUG, 0);
+	SETGATE(idt[T_NMI], 0, GD_KT, NMI, 0);
+	SETGATE(idt[T_BRKPT], 1, GD_KT, BREAKPOINT, 0);
+	SETGATE(idt[T_OFLOW], 1, GD_KT, OVERFLOW, 0);
+	SETGATE(idt[T_BOUND], 1, GD_KT, OUT_BOUND, 0);
+	SETGATE(idt[T_ILLOP], 1, GD_KT, INVALID_OP, 0);
+	SETGATE(idt[T_DEVICE], 1, GD_KT, UNAVA_DEVICE, 0);
+	SETGATE(idt[T_DBLFLT], 1, GD_KT, DOUBLE_FAULT, 0);
+	SETGATE(idt[T_TSS], 1, GD_KT, INVALID_TSS, 0);
+	SETGATE(idt[T_SEGNP], 1, GD_KT, SEG_MISS, 0);
+	SETGATE(idt[T_STACK], 1, GD_KT, STACKSEG_FAULT, 0);
+	SETGATE(idt[T_GPFLT], 1, GD_KT, NO_PERMISSION, 0);
+	SETGATE(idt[T_PGFLT], 1, GD_KT, PAGE_FAULT, 0);
+	SETGATE(idt[T_FPERR], 1, GD_KT, MATH_FAULT, 0);
+	SETGATE(idt[T_ALIGN], 1, GD_KT, ALIGN_CHECK, 0);
+	SETGATE(idt[T_MCHK], 1, GD_KT, MACHINE_CHECK, 0);
+	SETGATE(idt[T_SIMDERR], 1, GD_KT, SIMD_EXC, 0);
+	SETGATE(idt[T_SYSCALL], 0, GD_KT, SYSCALL, 3);
+	SETGATE(idt[T_DEFAULT], 0, GD_KT, DEFAULT, 3);
 	// Per-CPU setup 
 	trap_init_percpu();
 }
