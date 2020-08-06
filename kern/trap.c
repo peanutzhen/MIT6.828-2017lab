@@ -100,7 +100,7 @@ trap_init(void)
 	SETGATE(idt[T_DIVIDE], 1, GD_KT, DIV, 0);
 	SETGATE(idt[T_DEBUG], 1, GD_KT, DEBUG, 0);
 	SETGATE(idt[T_NMI], 0, GD_KT, NMI, 0);
-	SETGATE(idt[T_BRKPT], 1, GD_KT, BREAKPOINT, 0);
+	SETGATE(idt[T_BRKPT], 1, GD_KT, BREAKPOINT, 3);
 	SETGATE(idt[T_OFLOW], 1, GD_KT, OVERFLOW, 0);
 	SETGATE(idt[T_BOUND], 1, GD_KT, OUT_BOUND, 0);
 	SETGATE(idt[T_ILLOP], 1, GD_KT, INVALID_OP, 0);
@@ -198,6 +198,10 @@ trap_dispatch(struct Trapframe *tf)
 	// 处理 Page Fault
 	if (tf->tf_trapno == T_PGFLT) {
 		page_fault_handler(tf);
+		return;
+	}
+	else if(tf->tf_trapno == T_BRKPT) {
+		monitor(tf);
 		return;
 	}
 	// Unexpected trap: The user process or the kernel has a bug.
