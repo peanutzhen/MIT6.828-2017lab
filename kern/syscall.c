@@ -24,7 +24,7 @@ sys_cputs(const char *s, size_t len)
 	pte_t *ptr = NULL;
 	void *addr = (void *)s;
 	void *end = (void *)ROUNDUP(s+len, PGSIZE);
-	while (addr < end) {
+	/*while (addr < end) {
 		if(page_lookup(curenv->env_pgdir, addr, &ptr) == NULL || 
 			!(*ptr & PTE_U)) {
 			cprintf("Cannot access memory!\n");
@@ -32,7 +32,8 @@ sys_cputs(const char *s, size_t len)
 			return;
 		}
 		addr += PGSIZE;
-	}
+	}*/
+	user_mem_assert(curenv, (void *)s, len, 0);	
 	// Print the string supplied by the user.
 	cprintf("%.*s", len, s);
 }

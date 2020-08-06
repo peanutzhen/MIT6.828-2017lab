@@ -591,7 +591,21 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
-
+	pde_t *pgdir = env->env_pgdir;
+	const void *origin_va = va;
+	void *start = (void *) ROUNDDOWN(va, PGSIZE);
+	void *end = (void *) ROUNDUP(va+len, PGSIZE);
+	// 至少包含PTE_U
+	perm = perm | PTE_U;
+	for (; start < end; start+=PGSIZE, va+=PGSIZE) {
+		pte_t *ptr = NULL;
+		if (start >= (void *)ULIM ||
+			page_lookup(pgdir, start, &ptr) == NULL ||
+			(*ptr & perm) != perm) {
+			user_mem_check_addr = (uintptr_t)(va == origin_va ? va  : start);
+			return -E_FAULT;
+		}
+	}
 	return 0;
 }
 
