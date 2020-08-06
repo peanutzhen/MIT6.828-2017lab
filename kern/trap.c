@@ -200,8 +200,19 @@ trap_dispatch(struct Trapframe *tf)
 		page_fault_handler(tf);
 		return;
 	}
-	else if(tf->tf_trapno == T_BRKPT) {
+	else if (tf->tf_trapno == T_BRKPT) {
 		monitor(tf);
+		return;
+	}
+	else if (tf->tf_trapno == T_SYSCALL) {
+		struct PushRegs *p = &(tf->tf_regs);
+		p->reg_eax = (uint32_t) syscall(p->reg_eax,	// syscall_num
+										p->reg_edx,	// a1
+										p->reg_ecx,	// a2
+										p->reg_ebx, // a3
+										p->reg_edi, // a4
+										p->reg_esi	// a5
+										);
 		return;
 	}
 	// Unexpected trap: The user process or the kernel has a bug.

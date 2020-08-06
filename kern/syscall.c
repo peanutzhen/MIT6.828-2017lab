@@ -21,7 +21,18 @@ sys_cputs(const char *s, size_t len)
 	// Destroy the environment if not.
 
 	// LAB 3: Your code here.
-
+	pte_t *ptr = NULL;
+	void *addr = (void *)s;
+	void *end = (void *)ROUNDUP(s+len, PGSIZE);
+	while (addr < end) {
+		if(page_lookup(curenv->env_pgdir, addr, &ptr) == NULL || 
+			!(*ptr & PTE_U)) {
+			cprintf("Cannot access memory!\n");
+			env_destroy(curenv);
+			return;
+		}
+		addr += PGSIZE;
+	}
 	// Print the string supplied by the user.
 	cprintf("%.*s", len, s);
 }
@@ -70,11 +81,22 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
 
-	panic("syscall not implemented");
+	//panic("syscall not implemented");
 
 	switch (syscallno) {
-	default:
-		return -E_INVAL;
+		case SYS_cputs:
+			sys_cputs((const char *)a1,a2);
+			return 0;
+		case SYS_cgetc:
+			return sys_cgetc();
+		case SYS_getenvid:
+			return sys_getenvid();
+		case SYS_env_destroy:
+			return sys_env_destroy((envid_t)a1);
+		case NSYSCALLS:
+			return 0;
+		default:
+			return -E_INVAL;
 	}
 }
 
