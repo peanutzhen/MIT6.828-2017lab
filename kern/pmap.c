@@ -333,8 +333,10 @@ page_init(void)
 	// 设置第一个物理页为 in use.
 	pages[0].pp_ref = 0;
 	pages[0].pp_link = NULL;
+
 	// 从0x000A 0000 ~ pages的最后一项，刚好是一个连续被分配的页
 	// 即IO hole ～ 内核 ～ 页数据结构
+	size_t MPE_PAGE = PGNUM(MPENTRY_PADDR);	// Lab4 added.
 	size_t FPAGE_IOHOLE = PGNUM(0x0A0000);
 	size_t LPAGE_PAGES = PGNUM(PADDR(boot_alloc(0))) - 1;
 	// 终于知道n == 0的作用了哈哈
@@ -354,6 +356,11 @@ page_init(void)
 		pages[i].pp_link = page_free_list;
 		page_free_list = &pages[i];
 	}
+	
+	// Lab4 要求我们将NPENTRY_PADDR的那页给分配
+	// 那么只需修改那边连接的指针即可
+	pages[MPE_PAGE + 1].pp_link = pages[MPE_PAGE].pp_link;
+	pages[MPE_PAGE].pp_link = NULL;
 }
 //
 // Allocates a physical page.  If (alloc_flags & ALLOC_ZERO), fills the entire
@@ -634,7 +641,22 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+	
+	// size不一定是PGSIZE的倍数,且size不能越过MMIOLIM
+	// 返回新的base基址，就行nextfree那样
+	size = ROUNDUP(size, PGSIZE);
+	if (size > MMIOLIM - MMIOBASE)
+		panic("To much memory to mmio!\n");
+	boot_map_region(kern_pgdir,
+					base,
+					size,
+					pa,
+					PTE_W | PTE_PCD | PTE_PWT
+					);
+	uintptr_t rtv = base;
+	base += size;
+	return (void *)rtv;
+	//panic("mmio_map_region not implemented");
 }
 
 static uintptr_t user_mem_check_addr;
