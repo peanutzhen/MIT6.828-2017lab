@@ -218,12 +218,12 @@ mem_init(void)
 	// Your code goes here:
 	// 只映射注释说的 backed部分即可，not backed不要映射，使其对应存在位为0
 	// 这样访问就会跑出缺页中断错误
-	boot_map_region(kern_pgdir,
+	/*boot_map_region(kern_pgdir,
 					KSTACKTOP-KSTKSIZE, 
 					KSTKSIZE, 
 					PADDR(bootstack), 
 					PTE_W
-					);
+					);*/
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
 	// Ie.  the VA range [KERNBASE, 2^32) should map to
@@ -291,7 +291,16 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
-
+	int n;
+	uintptr_t off = KSTKSIZE + KSTKGAP;
+	for (n = 0; n < NCPU; n++) {
+		boot_map_region(kern_pgdir,
+						KSTACKTOP - n * off - KSTKSIZE,
+						KSTKSIZE,
+						PADDR(percpu_kstacks[n]),
+						PTE_W
+						);
+	}
 }
 
 // --------------------------------------------------------------
