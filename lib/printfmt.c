@@ -81,6 +81,7 @@ getint(va_list *ap, int lflag)
 // Main function to format and print a string.
 void printfmt(void (*putch)(int, void*), void *putdat, const char *fmt, ...);
 
+// 看了下，没有实现%f and %lf 
 void
 vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 {
@@ -91,6 +92,9 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 	char padc;
 
 	while (1) {
+		// 将fmt转化为指向字节的指针，并把当前指向的字符赋值给ch，再指向下一个
+		// 如果ch为%，说明要进行转义输出
+		// 如果不是，直接调用putch输出到console
 		while ((ch = *(unsigned char *) fmt++) != '%') {
 			if (ch == '\0')
 				return;
@@ -98,11 +102,11 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		}
 
 		// Process a %-escape sequence
-		padc = ' ';
-		width = -1;
-		precision = -1;
-		lflag = 0;
-		altflag = 0;
+		padc = ' ';			// 填充字符：空格
+		width = -1;			// 字段宽度
+		precision = -1;		// 小数点精度
+		lflag = 0;			// long flag
+		altflag = 0;		// 更标准的显示进制数
 	reswitch:
 		switch (ch = *(unsigned char *) fmt++) {
 
@@ -127,6 +131,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		case '8':
 		case '9':
 			for (precision = 0; ; ++fmt) {
+				// 就是依次读取数字，转化成十进制数，读到不是数字时退出
 				precision = precision * 10 + ch - '0';
 				ch = *fmt;
 				if (ch < '0' || ch > '9')
@@ -208,9 +213,9 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		// (unsigned) octal
 		case 'o':
 			// Replace this with your code.
-			putch('X', putdat);
-			putch('X', putdat);
-			putch('X', putdat);
+			num = getuint(&ap, lflag);
+			base = 8;
+			goto number;
 			break;
 
 		// pointer

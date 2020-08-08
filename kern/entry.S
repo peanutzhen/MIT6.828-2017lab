@@ -63,8 +63,9 @@ entry:
 	movl	%eax, %cr0
 
 	# Now paging is enabled, but we're still running at a low EIP
-	# (why is this okay?).  Jump up above KERNBASE before entering
+	# (why is this okay?).  Jump up above KERNBASE	before entering
 	# C code.
+	# 因为页表将虚拟地址（0,4mb）也映射到了物理地址的最低4mb地址空间去
 	mov	$relocated, %eax
 	jmp	*%eax
 relocated:
