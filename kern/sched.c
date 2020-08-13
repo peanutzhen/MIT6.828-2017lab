@@ -29,9 +29,30 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
-
-	// sched_halt never returns
-	sched_halt();
+	// 设置last running env指针 idle
+	idle = (curenv == NULL) ?  envs : (curenv + 1);
+	// 求tmp和envs的偏移
+	int offset = (int)(idle - envs);
+	// 设置额外工作flag
+	int flag = 1;
+	// searching..
+	int i = offset;
+	do {
+		if ((envs + i)->env_status == ENV_RUNNABLE) {
+			flag = 0;
+			env_run(envs + i);
+			break;
+		}
+		i++;
+		i %= NENV;
+	}while (i != offset);
+	// 额外工作检查
+	if (flag) {
+		if (curenv && curenv->env_status == ENV_RUNNING)
+			env_run(curenv);
+		else
+			sched_halt();
+	}
 }
 
 // Halt this CPU when there is nothing to do. Wait until the
