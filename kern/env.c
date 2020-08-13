@@ -571,6 +571,9 @@ env_run(struct Env *e)
 	curenv->env_status = ENV_RUNNING;
 	curenv->env_runs++;
 	lcr3(PADDR(curenv->env_pgdir));
+	// release lock of kernel
+	unlock_kernel();
+	// switch to user mode
 	env_pop_tf(&curenv->env_tf);
 	//panic("env_run not yet implemented");
 }
