@@ -96,7 +96,18 @@ sys_exofork(void)
 	// will appear to return 0.
 
 	// LAB 4: Your code here.
-	panic("sys_exofork not implemented");
+	struct Env *child = NULL;
+	int rtv = env_alloc(&child, curenv->env_id);
+	if (rtv < 0)
+		return rtv;
+	else {
+		// set Not Runnable
+		child->env_status = ENV_NOT_RUNNABLE;
+		child->env_tf = curenv->env_tf;
+		child->env_tf.tf_regs.reg_eax = 0;
+		return child->env_id;
+	}
+	//panic("sys_exofork not implemented");
 }
 
 // Set envid's env_status to status, which must be ENV_RUNNABLE
@@ -116,7 +127,18 @@ sys_env_set_status(envid_t envid, int status)
 	// envid's status.
 
 	// LAB 4: Your code here.
-	panic("sys_env_set_status not implemented");
+	struct Env *aEnv;
+	int rtv = envid2env(envid, &aEnv, 1);
+	if (rtv < 0)
+		return rtv;
+	else {
+		if (status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE)
+			return -E_INVAL;
+		aEnv->env_status = status;
+		return 0;
+	}
+
+	//panic("sys_env_set_status not implemented");
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -161,7 +183,28 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	//   allocated!
 
 	// LAB 4: Your code here.
-	panic("sys_page_alloc not implemented");
+	// 分配一页
+	struct PageInfo *aPage = page_alloc(ALLOC_ZERO);
+	if (!aPage)
+		return -E_NO_MEM;
+	// 参数正确性检验
+	if ((uintptr_t) va & 0xFFF || (uintptr_t) va >= UTOP)
+		return -E_INVAL;
+	int must_set = PTE_U | PTE_P;
+	int prohibit_set = 0x1F8;		// see mmu.h
+	if ((perm & must_set) != must_set || perm & prohibit_set)
+		return -E_INVAL;
+	// 获取Env
+	struct Env *aEnv;
+	int rtv = envid2env(envid, &aEnv, 1);
+	if (rtv < 0)
+		return rtv;
+	// 设置映射
+	rtv = page_insert(aEnv->env_pgdir, aPage, va, perm);
+	if (rtv < 0) 	// insert failed...
+		page_free(aPage);
+	return rtv;
+	//panic("sys_page_alloc not implemented");
 }
 
 // Map the page of memory at 'srcva' in srcenvid's address space
@@ -192,7 +235,32 @@ sys_page_map(envid_t srcenvid, void *srcva,
 	//   check the current permissions on the page.
 
 	// LAB 4: Your code here.
-	panic("sys_page_map not implemented");
+	struct Env *src, *dst;
+	int r1 = envid2env(srcenvid, &src, 1);
+	int r2 = envid2env(dstenvid, &dst, 1);
+	if (r1 < 0 || r2 < 0)
+		return -E_BAD_ENV;
+	// 范围检查
+	if ((uintptr_t) srcva >= UTOP || (uintptr_t) dstva >= UTOP)
+		return -E_INVAL;	
+	// 对齐检查
+	if ((uintptr_t) srcva & 0xFFF || (uintptr_t) dstva >= UTOP)
+        return -E_INVAL;
+	// 权限检查
+    int must_set = PTE_U | PTE_P;
+    int prohibit_set = 0x1F8;       // see mmu.h
+    if ((perm & must_set) != must_set ||
+        perm & prohibit_set)
+        return -E_INVAL;
+	// Get 原env的那个物理页
+	pte_t *aPte;
+	struct PageInfo *aPage = page_lookup(src->env_pgdir, srcva, &aPte);
+	// 权限检查
+	if (perm & PTE_W && (*aPte & PTE_W) == 0)
+		return -E_INVAL;
+	r1 = page_insert(dst->env_pgdir, aPage, dstva, perm);
+	return r1;
+	//panic("sys_page_map not implemented");
 }
 
 // Unmap the page of memory at 'va' in the address space of 'envid'.
@@ -208,7 +276,18 @@ sys_page_unmap(envid_t envid, void *va)
 	// Hint: This function is a wrapper around page_remove().
 
 	// LAB 4: Your code here.
-	panic("sys_page_unmap not implemented");
+	// 检查 va
+	if ((uintptr_t) va >= UTOP || (uintptr_t) va & 0xFFF)
+		return -E_INVAL;
+	// get env
+	struct Env *aEnv;
+	int rtv = envid2env(envid, &aEnv, 1);
+	if (rtv < 0)
+		return rtv;
+	// page remove
+	page_remove(aEnv->env_pgdir, va);
+	return 0;
+	//panic("sys_page_unmap not implemented");
 }
 
 // Try to send 'value' to the target env 'envid'.
@@ -298,6 +377,20 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		case SYS_yield:
 			sys_yield();
 			return 0;
+		case SYS_exofork:
+			return sys_exofork();
+		case SYS_env_set_status:
+			return sys_env_set_status((envid_t)a1, (int)a2);
+		case SYS_page_alloc:
+			return sys_page_alloc((envid_t)a1, (void *)a2, (int)a3);
+		case SYS_page_map:
+			return sys_page_map((envid_t)a1,
+								(void *)a2,
+								(envid_t)a3,
+								(void *)a4,
+								(int)a5);
+		case SYS_page_unmap:
+			return sys_page_unmap((envid_t)a1, (void *)a2);
 		case NSYSCALLS:
 			return 0;
 		default:
