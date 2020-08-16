@@ -377,11 +377,41 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
-
-	// Destroy the environment that caused the fault.
-	cprintf("[%08x] user fault va %08x ip %08x\n",
-		curenv->env_id, fault_va, tf->tf_eip);
-	print_trapframe(tf);
-	env_destroy(curenv);
+	if (curenv->env_pgfault_upcall == NULL ||
+		(fault_va <= (UXSTACKTOP-PGSIZE) &&
+		 fault_va >= USTACKTOP)
+		) {
+		// Destroy the environment that caused the fault.
+		cprintf("[%08x] user fault va %08x ip %08x\n",
+			curenv->env_id, fault_va, tf->tf_eip);
+		print_trapframe(tf);
+		env_destroy(curenv);
+	}
+	else {
+		// 想办法压入UtrapFrame至合适处
+		// 实际上，就是往内存写信息，我们直接在地址写信息就好了，不需要真的用汇编语
+		// 言push信息（你也push不了，因为现在esp指向的是USTACK里面）
+		// 那么，直接用一个指向UtrapFrame的指针指向合适处即可
+		struct UTrapframe *utf = NULL;
+		// 设置合适的指向（看要求）
+		if (!(tf->tf_esp >= UXSTACKTOP - PGSIZE &&
+			 tf->tf_esp <= UXSTACKTOP - 1))
+			utf = (struct UTrapframe *)(UXSTACKTOP - sizeof(struct UTrapframe));
+		else
+			utf = (struct UTrapframe *)(tf->tf_esp - 4 - sizeof(struct UTrapframe));
+		// 判断utf那段内存可写吗？
+		user_mem_assert(curenv, (void *) utf, sizeof(struct UTrapframe), PTE_W);	
+		// 向内存写信息
+		utf->utf_fault_va = fault_va;
+		utf->utf_err = tf->tf_err;
+		utf->utf_regs = tf->tf_regs;
+		utf->utf_eip = tf->tf_eip;
+		utf->utf_eflags = tf->tf_eflags;
+		utf->utf_esp = tf->tf_esp;
+		// 转去执行upcall
+		tf->tf_eip = (uintptr_t)curenv->env_pgfault_upcall;
+		tf->tf_esp = (uintptr_t) utf;
+		env_run(curenv);
+	}
 }
 
