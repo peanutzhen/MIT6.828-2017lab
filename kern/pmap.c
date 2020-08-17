@@ -232,9 +232,6 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
-
-	// 为了对应物理内存可能不足的情况，作者将boot_map_region的循环次数限制
-	// 在一定在npages的次数内。
 	boot_map_region(kern_pgdir,
 					KERNBASE,
 					0xFFFFFFFF-KERNBASE,
