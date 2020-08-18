@@ -307,10 +307,16 @@ region_alloc(struct Env *e, void *va, size_t len)
 		struct PageInfo *p;
 		if (!(p = page_alloc(0)))
 			panic("Out of memory!\n");
-		pte_t *pte_pointer = pgdir_walk(e->env_pgdir, va, 1);
+		if (page_insert(e->env_pgdir, p, va, PTE_W | PTE_U | PTE_P) == -E_NO_MEM)
+			panic("Out of memory!\n");
+		// 之前忘记可以用insert做映射。。导致很多奇怪的bug。。
+		// 我吐了！！
+		/* pte_t *pte_pointer = pgdir_walk(e->env_pgdir, va, 1);
 		if (!pte_pointer)
 			panic("Out of memory!\n");
 		*pte_pointer = page2pa(p) | PTE_W | PTE_U | PTE_P;
+		p->pp_ref++;	// 请将页面引用++，alloc是不负责此项任务，caller必须负责！
+		// Lab4 forktree 就是因为没有将ref++导致十分奇怪的bug！ */
 	}
 }
 
@@ -566,6 +572,8 @@ env_run(struct Env *e)
 		if (curenv->env_status == ENV_RUNNING)
 			curenv->env_status = ENV_RUNNABLE;
 		// 为什么不保存该进程当前上下文？？
+		// 因为上下文切换是系统调用，自动在上下文切换时
+		// 保存上下文至env_tf了。
 	}
 	curenv = e;
 	curenv->env_status = ENV_RUNNING;
