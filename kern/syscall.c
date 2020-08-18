@@ -248,22 +248,26 @@ sys_page_map(envid_t srcenvid, void *srcva,
 		return -E_BAD_ENV;
 	// 范围检查
 	if ((uintptr_t) srcva >= UTOP || (uintptr_t) dstva >= UTOP)
-		return -E_INVAL;	
+		panic(">=UTOP\n");//return -E_INVAL;	
 	// 对齐检查
-	if ((uintptr_t) srcva & 0xFFF || (uintptr_t) dstva >= UTOP)
-        return -E_INVAL;
+	if ((uintptr_t) srcva & 0xFFF || (uintptr_t) dstva & 0xFFF)
+        panic("not aligned\n");//return -E_INVAL;
 	// 权限检查
     int must_set = PTE_U | PTE_P;
     int prohibit_set = 0x1F8;       // see mmu.h
     if ((perm & must_set) != must_set ||
         perm & prohibit_set)
-        return -E_INVAL;
+        panic("perm failed!\n");//return -E_INVAL;
 	// Get 原env的那个物理页
 	pte_t *aPte;
 	struct PageInfo *aPage = page_lookup(src->env_pgdir, srcva, &aPte);
+	// srcva是否有效检查
+	if (aPage == NULL)
+		panic("aPage == NULL\n");//return -E_INVAL;
 	// 权限检查
 	if (perm & PTE_W && (*aPte & PTE_W) == 0)
-		return -E_INVAL;
+		panic("map to writable for readonly page\n");//return -E_INVAL;
+	//cprintf("before insert, page ref is %d\n",aPage->pp_ref);
 	r1 = page_insert(dst->env_pgdir, aPage, dstva, perm);
 	return r1;
 	//panic("sys_page_map not implemented");

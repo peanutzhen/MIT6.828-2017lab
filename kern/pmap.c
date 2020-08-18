@@ -232,9 +232,6 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
-
-	// 为了对应物理内存可能不足的情况，作者将boot_map_region的循环次数限制
-	// 在一定在npages的次数内。
 	boot_map_region(kern_pgdir,
 					KERNBASE,
 					0xFFFFFFFF-KERNBASE,
@@ -413,6 +410,7 @@ page_free(struct PageInfo *pp)
 	if (pp->pp_ref != 0 && pp->pp_link != NULL)
 		panic("Existing other reference or it's already free.\n");
 	else{
+		//cprintf("freeing this page..\n");
 		pp->pp_link = page_free_list;
 		page_free_list = pp;
 	}
@@ -541,8 +539,10 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	// Fill this function in
 	pte_t *pte_pointer = pgdir_walk(pgdir, va, 1);
 	if (pte_pointer){	// Allocated succ or just find it.
+		// 先ref++可以保证如果重复insert同一页
+		// 那页不会被free掉！如果被free掉，那就完了！（其他进程可能修改你这页）
 		pp->pp_ref++;
-		if ((*pte_pointer) & PTE_P){	// va 已经有映射了
+		if ((*pte_pointer) & PTE_P){	// va 已经有映射了,要移除之前那个映射噢
 			page_remove(pgdir, va);
 			tlb_invalidate(pgdir, va);
 		}
@@ -600,6 +600,8 @@ page_remove(pde_t *pgdir, void *va)
 	pte_t *pte_store;	// 存放查询va后的pte地址
 	struct PageInfo *pp = page_lookup(pgdir, va, &pte_store);
 	if (pp){
+		//cprintf("%08x ref %d\n", va, pp->pp_ref);
+		//cprintf("%08x removing.\n", va);
 		page_decref(pp);			// ref-- and if ref ==0, free it.
 		*pte_store = 0; 			// set va's pte to 0
 		tlb_invalidate(pgdir, va); 	// TLB invalidated.
