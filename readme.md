@@ -10,8 +10,8 @@
 2. [Lab1](https://zhuanlan.zhihu.com/p/162992417)
 3. [Lab2](https://zhuanlan.zhihu.com/p/165104094)
 4. [Lab3](https://zhuanlan.zhihu.com/p/170162501)
-5. [Lab4 PartA]()
-6. [Lab4 PartB]()
+5. [Lab4 PartA](https://zhuanlan.zhihu.com/p/184732745)
+6. [Lab4 PartB](https://zhuanlan.zhihu.com/p/188511374)
 
 ## 使用教程
 
