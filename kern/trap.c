@@ -94,8 +94,18 @@ trap_init(void)
 	void ALIGN_CHECK();
 	void MACHINE_CHECK();
 	void SIMD_EXC();
+	// user
 	void SYSCALL();
 	void DEFAULT();
+	// device
+	void TIMER();
+	void KEYBOARD();
+	void SLAVE();
+	void SERIAL();
+	void SPURIOUS();
+	void IDE();
+	void ERROR();
+
 	// 初始化IDT表，使用SETGATE宏
 	// 用 trap number索引interrupt/trap gate entry
 	// 由于trapentry.S属于kernel代码，所以段选择器应该为GD_KT
@@ -103,27 +113,39 @@ trap_init(void)
 	// tepe = 0 means interrupt
 	// 所有的trap(exception)的dpl应该 < 3 ; 中断看情况
 	// 像系统调用dpl就要为3，（用户程序可调用）
+
+	// Lab4 PartC更新，所有进入内核代码必须关中断！
+	// 即type全部设置成0（interrupt）
 	//		seg_desc	type  sel   off  dpl
-	SETGATE(idt[T_DIVIDE], 1, GD_KT, DIV, 0);
-	SETGATE(idt[T_DEBUG], 1, GD_KT, DEBUG, 0);
+	SETGATE(idt[T_DIVIDE], 0, GD_KT, DIV, 0);
+	SETGATE(idt[T_DEBUG], 0, GD_KT, DEBUG, 0);
 	SETGATE(idt[T_NMI], 0, GD_KT, NMI, 0);
-	SETGATE(idt[T_BRKPT], 1, GD_KT, BREAKPOINT, 3);
-	SETGATE(idt[T_OFLOW], 1, GD_KT, OVERFLOW, 0);
-	SETGATE(idt[T_BOUND], 1, GD_KT, OUT_BOUND, 0);
-	SETGATE(idt[T_ILLOP], 1, GD_KT, INVALID_OP, 0);
-	SETGATE(idt[T_DEVICE], 1, GD_KT, UNAVA_DEVICE, 0);
-	SETGATE(idt[T_DBLFLT], 1, GD_KT, DOUBLE_FAULT, 0);
-	SETGATE(idt[T_TSS], 1, GD_KT, INVALID_TSS, 0);
-	SETGATE(idt[T_SEGNP], 1, GD_KT, SEG_MISS, 0);
-	SETGATE(idt[T_STACK], 1, GD_KT, STACKSEG_FAULT, 0);
-	SETGATE(idt[T_GPFLT], 1, GD_KT, NO_PERMISSION, 0);
-	SETGATE(idt[T_PGFLT], 1, GD_KT, PAGE_FAULT, 0);
-	SETGATE(idt[T_FPERR], 1, GD_KT, MATH_FAULT, 0);
-	SETGATE(idt[T_ALIGN], 1, GD_KT, ALIGN_CHECK, 0);
-	SETGATE(idt[T_MCHK], 1, GD_KT, MACHINE_CHECK, 0);
-	SETGATE(idt[T_SIMDERR], 1, GD_KT, SIMD_EXC, 0);
+	SETGATE(idt[T_BRKPT], 0, GD_KT, BREAKPOINT, 3);
+	SETGATE(idt[T_OFLOW], 0, GD_KT, OVERFLOW, 0);
+	SETGATE(idt[T_BOUND], 0, GD_KT, OUT_BOUND, 0);
+	SETGATE(idt[T_ILLOP], 0, GD_KT, INVALID_OP, 0);
+	SETGATE(idt[T_DEVICE], 0, GD_KT, UNAVA_DEVICE, 0);
+	SETGATE(idt[T_DBLFLT], 0, GD_KT, DOUBLE_FAULT, 0);
+	SETGATE(idt[T_TSS], 0, GD_KT, INVALID_TSS, 0);
+	SETGATE(idt[T_SEGNP], 0, GD_KT, SEG_MISS, 0);
+	SETGATE(idt[T_STACK], 0, GD_KT, STACKSEG_FAULT, 0);
+	SETGATE(idt[T_GPFLT], 0, GD_KT, NO_PERMISSION, 0);
+	SETGATE(idt[T_PGFLT], 0, GD_KT, PAGE_FAULT, 0);
+	SETGATE(idt[T_FPERR], 0, GD_KT, MATH_FAULT, 0);
+	SETGATE(idt[T_ALIGN], 0, GD_KT, ALIGN_CHECK, 0);
+	SETGATE(idt[T_MCHK], 0, GD_KT, MACHINE_CHECK, 0);
+	SETGATE(idt[T_SIMDERR], 0, GD_KT, SIMD_EXC, 0);
+	// user
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, SYSCALL, 3);
 	SETGATE(idt[T_DEFAULT], 0, GD_KT, DEFAULT, 3);
+	// device
+	SETGATE(idt[IRQ_OFFSET+IRQ_TIMER], 0, GD_KT, TIMER, 0);
+	SETGATE(idt[IRQ_OFFSET+IRQ_KBD], 0, GD_KT, KEYBOARD, 0);
+	SETGATE(idt[IRQ_OFFSET+IRQ_SLAVE], 0, GD_KT, SLAVE, 0);
+	SETGATE(idt[IRQ_OFFSET+IRQ_SERIAL], 0, GD_KT, SERIAL, 0);
+	SETGATE(idt[IRQ_OFFSET+IRQ_SPURIOUS], 0, GD_KT, SPURIOUS, 0);
+	SETGATE(idt[IRQ_OFFSET+IRQ_IDE], 0, GD_KT, IDE, 0);
+	SETGATE(idt[IRQ_OFFSET+IRQ_ERROR], 0, GD_KT, ERROR, 0);
 	// Per-CPU setup 
 	trap_init_percpu();
 }
@@ -230,10 +252,12 @@ trap_dispatch(struct Trapframe *tf)
 		page_fault_handler(tf);
 		return;
 	}
+	// 处理断点
 	else if (tf->tf_trapno == T_BRKPT) {
 		monitor(tf);
 		return;
 	}
+	// 处理系统调用
 	else if (tf->tf_trapno == T_SYSCALL) {
 		struct PushRegs *p = &(tf->tf_regs);
 		p->reg_eax = (uint32_t) syscall(p->reg_eax,	// syscall_num
@@ -253,6 +277,11 @@ trap_dispatch(struct Trapframe *tf)
         print_trapframe(tf);
         return;
     }
+	// 处理时钟中断信号
+	else if(tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+		lapic_eoi();	// 结束时钟中断信号
+		sched_yield();	// never return!
+	}
 
     // Handle clock interrupts. Don't forget to acknowledge the
     // interrupt using lapic_eoi() before calling the scheduler!

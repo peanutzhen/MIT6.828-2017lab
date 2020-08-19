@@ -116,19 +116,17 @@ duppage(envid_t envid, unsigned pn)
 
 			// if 可写 或 写时复制 page
 	if ((perm & PTE_W) || (perm & PTE_COW)) {
-		//cprintf("w|cow page mapping...\n");
 		if ((r = sys_page_map(0, addr, envid, addr, cow_perm)) < 0)
 			panic("map failed with %d\n", r);
 		// 修改回父进程的权限，使其没有PTE_W，但必须有PTE_COW
-		//cprintf("parent remap..\n");
 		if ((r = sys_page_map(0, addr, 0, addr, cow_perm)) < 0)
 			panic("remap failed with %d\n", r);
 	}
 	else {	// 只读页面
-		//cprintf("ro page mapping..\n");
 		if ((r = sys_page_map(0, addr, envid, addr, ro_perm)) < 0)
 			panic("map failed with %d\n", r);
 	}
+
 	return 0;
 }
 
@@ -182,12 +180,8 @@ fork(void)
 			if (tmp == 0)	// 若父进程没有映射(PTE_P == 0)，则跳过
 				continue;
 			else			// 否则duppage
-			{
 				duppage(child, PGNUM(addr));
-				//cprintf("%08x mapped.\n", addr);
-			}
 		}
-
 		// 为子进程设置异常栈和upcall地址
 		rtv = sys_page_alloc(child, (void *) UXSTACKTOP - PGSIZE, PTE_P|PTE_U|PTE_W);
 		if (rtv < 0)

@@ -77,12 +77,19 @@ TRAPHANDLER_NOEC(SIMD_EXC, T_SIMDERR)
 /* user defined */
 TRAPHANDLER_NOEC(SYSCALL, T_SYSCALL)
 TRAPHANDLER_NOEC(DEFAULT, T_DEFAULT)
-
+/* device defined */
+TRAPHANDLER_NOEC(TIMER, IRQ_OFFSET + IRQ_TIMER)
+TRAPHANDLER_NOEC(SLAVE, IRQ_OFFSET + IRQ_SLAVE)
+TRAPHANDLER_NOEC(KEYBOARD, IRQ_OFFSET + IRQ_KBD)
+TRAPHANDLER_NOEC(SERIAL, IRQ_OFFSET + IRQ_SERIAL)
+TRAPHANDLER_NOEC(SPURIOUS, IRQ_OFFSET + IRQ_SPURIOUS)
+TRAPHANDLER_NOEC(IDE, IRQ_OFFSET + IRQ_IDE)
+TRAPHANDLER_NOEC(ERROR, IRQ_OFFSET + IRQ_ERROR)
 
 /*
  * Lab 3: Your code here for _alltraps
  */
-/* 我们秩序向 stack 压如 ds 和 es。
+/* 我们只需向 stack 压如 ds 和 es。
  * 因为 在调用_alltraps前， int指令和对应的中断向量入口程序
  * 已经帮助我们压入所需信息，比如int：亚入 ss, esp, eflags, cs, eip,
  * error_code(if so)
