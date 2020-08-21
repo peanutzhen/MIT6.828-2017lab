@@ -181,7 +181,7 @@ trap_init_percpu(void)
 	int n = cpunum();
 	int gap_stack = KSTKSIZE + KSTKGAP;
 	// 为每个CPU设置合适的内核堆栈
-	thiscpu->cpu_ts.ts_esp0 = KSTACKTOP + n * gap_stack;
+	thiscpu->cpu_ts.ts_esp0 = KSTACKTOP - n * gap_stack;
 	thiscpu->cpu_ts.ts_ss0 = GD_KD;		// Kernal Data seg.
 	thiscpu->cpu_ts.ts_iomb = sizeof(struct Taskstate);
 	// 设置TSS在GDT中描述
