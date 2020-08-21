@@ -342,7 +342,55 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+	uintptr_t addr = (uintptr_t) srcva;
+ 	pte_t *aPte;
+	struct PageInfo *aPage;
+	int r;
+
+	// 获取目标进程
+	struct Env *dstEnv;
+	if ((r = envid2env(envid, &dstEnv, 0)) < 0)
+		return r;
+
+ 	// 目标进程正在等待接收信息吗？
+ 	if (dstEnv->env_ipc_recving)
+	{
+  		dstEnv->env_ipc_recving = 0;
+
+  		// sender要共享页吗？receiver要共享页吗？
+  		if (addr < UTOP && (uintptr_t) (dstEnv->env_ipc_dstva) < UTOP)
+		{
+			// Page-aligned flag
+			int f1 = addr & 0xFFF;
+			// Perm check flag: f2/f3
+			int f2 = (perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P) ;
+			int f3 = perm & 0x1F8;
+			// Caller non map on srcva flag
+			int f4 = ((aPage = page_lookup(curenv->env_pgdir, srcva, &aPte)) == NULL);
+			// map writable to read-only page
+			int f5 = ((perm & PTE_W) && (*aPte & PTE_W) == 0);
+
+   			if (f1 || f2 || f3 || f4 || f5)
+    			return -E_INVAL;
+   			else {
+				r = page_insert(dstEnv->env_pgdir, aPage, dstEnv->env_ipc_dstva, perm);
+				if (r < 0)
+					return r;
+				dstEnv->env_ipc_perm = perm;
+			}
+  		}
+  		else
+   			dstEnv->env_ipc_perm = 0;
+		
+		// word transfer
+		dstEnv->env_ipc_value = value;
+		dstEnv->env_ipc_from = sys_getenvid();
+		// 唤醒接受进程
+		dstEnv->env_status = ENV_RUNNABLE;
+		return 0;
+ 	}
+ 	else
+  		return -E_IPC_NOT_RECV;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -360,7 +408,22 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
+ 	uintptr_t addr = (uintptr_t) dstva;
+ 	if (addr < UTOP) {
+  		if ((addr & 0xFFF) == 0)
+   			curenv->env_ipc_dstva = dstva;
+  		else
+   			return -E_INVAL;
+ 	}
+ 
+	// 阻塞自己
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	// 设置返回值
+	curenv->env_tf.tf_regs.reg_eax = 0;
+	// 设置想要接受信息标志
+	curenv->env_ipc_recving = 1;
+	// give up CPU
+	sched_yield();
 	return 0;
 }
 
@@ -403,6 +466,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 								(int)a5);
 		case SYS_page_unmap:
 			return sys_page_unmap((envid_t)a1, (void *)a2);
+		case SYS_ipc_try_send:
+			return sys_ipc_try_send((envid_t) a1, (uint32_t) a2, (void *) a3, (unsigned) a4);
+		case SYS_ipc_recv:
+			return sys_ipc_recv((void *) a1);
 		case NSYSCALLS:
 			return 0;
 		default:
