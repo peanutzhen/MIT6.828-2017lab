@@ -197,13 +197,17 @@ cga_putc(int c)
 	}
 
 	// What is the purpose of this?
+	// 显然，这是处理光标超出当前显示缓冲区大小的代码段
 	if (crt_pos >= CRT_SIZE) {
 		int i;
-
+		// 将从(crt_buf+CRT_COLS)开始，大小为(CRT_SIZE - CRT_COLS)的
+		// 字（2个字节）复制到从crt_buf为起始地址的内存去。
+		// 简单点说，就是丢弃当前buffer的首行
 		memmove(crt_buf, crt_buf + CRT_COLS, (CRT_SIZE - CRT_COLS) * sizeof(uint16_t));
 		for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++)
-			crt_buf[i] = 0x0700 | ' ';
-		crt_pos -= CRT_COLS;
+			crt_buf[i] = 0x0700 | ' ';	
+		// 将末行的所有字符显示为空格，高16位（0x07)应该是颜色属性
+		crt_pos -= CRT_COLS;			// 将光标置位至最后一行的起始处
 	}
 
 	/* move that little blinky thing */

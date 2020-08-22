@@ -47,10 +47,63 @@
 /*
  * Lab 3: Your code here for generating entry points for the different traps.
  */
-
-
+/* 我们的中断处理程序就被定义在这里
+ * 可以看到，中断事件的处理流程是：
+ * 获得中断向量码 --> 获取 interrupt/trap gate --> 用sel在GDT获取
+ * 中断处理程序所在段基址 --> 与off相加得到线性地址 --> 切换栈（
+ * 如果需要） --> 保存信息 --> 到达这里定义的标号 --> ...
+ * 
+ * 请在spring_knowledges文件夹获取更详细的调用流程。
+ */
+/* processor defined */
+TRAPHANDLER_NOEC(DIV, T_DIVIDE)
+TRAPHANDLER_NOEC(DEBUG, T_DEBUG)
+TRAPHANDLER_NOEC(NMI, T_NMI)
+TRAPHANDLER_NOEC(BREAKPOINT, T_BRKPT)
+TRAPHANDLER_NOEC(OVERFLOW, T_OFLOW)
+TRAPHANDLER_NOEC(OUT_BOUND, T_BOUND)
+TRAPHANDLER_NOEC(INVALID_OP, T_ILLOP)
+TRAPHANDLER_NOEC(UNAVA_DEVICE, T_DEVICE)
+TRAPHANDLER(DOUBLE_FAULT, T_DBLFLT)
+TRAPHANDLER(INVALID_TSS, T_TSS)
+TRAPHANDLER(SEG_MISS, T_SEGNP)
+TRAPHANDLER(STACKSEG_FAULT, T_STACK)
+TRAPHANDLER(NO_PERMISSION, T_GPFLT)
+TRAPHANDLER(PAGE_FAULT, T_PGFLT)
+TRAPHANDLER_NOEC(MATH_FAULT, T_FPERR)
+TRAPHANDLER(ALIGN_CHECK, T_ALIGN)
+TRAPHANDLER_NOEC(MACHINE_CHECK, T_MCHK)
+TRAPHANDLER_NOEC(SIMD_EXC, T_SIMDERR)
+/* user defined */
+TRAPHANDLER_NOEC(SYSCALL, T_SYSCALL)
+TRAPHANDLER_NOEC(DEFAULT, T_DEFAULT)
+/* device defined */
+TRAPHANDLER_NOEC(TIMER, IRQ_OFFSET + IRQ_TIMER)
+TRAPHANDLER_NOEC(SLAVE, IRQ_OFFSET + IRQ_SLAVE)
+TRAPHANDLER_NOEC(KEYBOARD, IRQ_OFFSET + IRQ_KBD)
+TRAPHANDLER_NOEC(SERIAL, IRQ_OFFSET + IRQ_SERIAL)
+TRAPHANDLER_NOEC(SPURIOUS, IRQ_OFFSET + IRQ_SPURIOUS)
+TRAPHANDLER_NOEC(IDE, IRQ_OFFSET + IRQ_IDE)
+TRAPHANDLER_NOEC(ERROR, IRQ_OFFSET + IRQ_ERROR)
 
 /*
  * Lab 3: Your code here for _alltraps
  */
+/* 我们只需向 stack 压如 ds 和 es。
+ * 因为 在调用_alltraps前， int指令和对应的中断向量入口程序
+ * 已经帮助我们压入所需信息，比如int：亚入 ss, esp, eflags, cs, eip,
+ * error_code(if so)
+ */
+_alltraps:
+	pushl %ds
+	pushl %es
 
+	pushal
+	
+	movw $GD_KD,%ax
+	movw %ax,%ds
+	movw %ax,%es
+	
+	pushl %esp
+	call trap
+	/* trap never return, should use jmp instead of call */

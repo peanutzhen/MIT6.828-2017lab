@@ -65,18 +65,38 @@ _pgfault_upcall:
 	// ways as registers become unavailable as scratch space.
 	//
 	// LAB 4: Your code here.
+	// 这里的栈对应地址就是按UTrapframe的顺序
+	// 读者应对于现在的stack空间有清晰的认知（即哪个单元是什么东西）
+
+	// 先将eip转移到trap的那个stack
+	movl 0x28(%esp), %eax
+	movl 0x30(%esp), %ebx
+	subl $0x4, %ebx
+	movl %ebx, 0x30(%esp)	// 同时修改trap time esp的值，后面不能做运算！
+	movl %eax, (%ebx)
 
 	// Restore the trap-time registers.  After you do this, you
 	// can no longer modify any general-purpose registers.
 	// LAB 4: Your code here.
+	movl 0x8(%esp), %edi
+	movl 0xc(%esp), %esi
+	movl 0x10(%esp), %ebp
+	movl 0x18(%esp), %ebx
+	movl 0x1c(%esp), %edx
+	movl 0x20(%esp), %ecx
+	movl 0x24(%esp), %eax
 
 	// Restore eflags from the stack.  After you do this, you can
 	// no longer use arithmetic operations or anything else that
 	// modifies eflags.
 	// LAB 4: Your code here.
+	add $0x2c, %esp
+	popfl
 
 	// Switch back to the adjusted trap-time stack.
 	// LAB 4: Your code here.
-
+	movl (%esp), %esp
+	
 	// Return to re-execute the instruction that faulted.
 	// LAB 4: Your code here.
+	ret

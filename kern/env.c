@@ -119,7 +119,18 @@ env_init(void)
 {
 	// Set up envs array
 	// LAB 3: Your code here.
-
+	// 简单的链表操作，有手就行
+	struct Env *tmp = envs;
+	env_free_list = envs;
+	envs->env_status = ENV_FREE;
+	envs->env_id = 0;
+	int i = 1;
+	for (; i < NENV; i++){
+		envs[i].env_status = ENV_FREE;
+		envs[i].env_id = 0;
+		tmp->env_link = &envs[i];
+		tmp = tmp->env_link;
+	}
 	// Per-CPU part of the initialization
 	env_init_percpu();
 }
@@ -182,6 +193,11 @@ env_setup_vm(struct Env *e)
 	//    - The functions in kern/pmap.h are handy.
 
 	// LAB 3: Your code here.
+	// 设置指针指向该进程的页目录
+	p->pp_ref++;
+	e->env_pgdir = page2kva(p);
+	// 直接复制kern_pgdir到env_pgdir
+	memcpy(e->env_pgdir, kern_pgdir, PGSIZE);
 
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
@@ -247,6 +263,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// Enable interrupts while in user mode.
 	// LAB 4: Your code here.
+	e->env_tf.tf_eflags |= FL_IF;
 
 	// Clear the page fault handler until user installs one.
 	e->env_pgfault_upcall = 0;
@@ -279,6 +296,29 @@ region_alloc(struct Env *e, void *va, size_t len)
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round (va + len) up.
 	//   (Watch out for corner-cases!)
+	
+	// 对齐地址
+	va = ROUNDDOWN(va, PGSIZE);
+	void *end_mem = ROUNDUP(va+len, PGSIZE);
+	// 统计需分配页数
+	uint32_t n_pg = (uint32_t)(end_mem - va + 1) / PGSIZE;
+	// 边分配边映射
+	uint32_t i;
+	for (i = 0; i < n_pg; i++, va+=PGSIZE) {
+		struct PageInfo *p;
+		if (!(p = page_alloc(0)))
+			panic("Out of memory!\n");
+		if (page_insert(e->env_pgdir, p, va, PTE_W | PTE_U | PTE_P) == -E_NO_MEM)
+			panic("Out of memory!\n");
+		// 之前忘记可以用insert做映射。。导致很多奇怪的bug。。
+		// 我吐了！！
+		/* pte_t *pte_pointer = pgdir_walk(e->env_pgdir, va, 1);
+		if (!pte_pointer)
+			panic("Out of memory!\n");
+		*pte_pointer = page2pa(p) | PTE_W | PTE_U | PTE_P;
+		p->pp_ref++;	// 请将页面引用++，alloc是不负责此项任务，caller必须负责！
+		// Lab4 forktree 就是因为没有将ref++导致十分奇怪的bug！ */
+	}
 }
 
 //
@@ -335,11 +375,50 @@ load_icode(struct Env *e, uint8_t *binary)
 	//  What?  (See env_run() and env_pop_tf() below.)
 
 	// LAB 3: Your code here.
-
+	uint16_t count;
+	struct Elf *elf_p = (struct Elf*) binary;
+	uint16_t phnum = elf_p->e_phnum;
+	// 是ELF格式吗？
+	if (elf_p->e_magic != ELF_MAGIC)
+		panic("Not a ELF file!\n");
+	// 定位第一个程序头地址
+	struct Proghdr *ph = (struct Proghdr*) (binary + elf_p->e_phoff);
+	// 分配+映射
+	// 设置进程的页目录，否则肯定是访问错误
+	// (user address are not mapped on kern_pgdir)
+    lcr3(PADDR(e->env_pgdir));  
+	for ( count = 0; count < phnum; count++, ph++) {
+		// 跳过无需 Load 的段
+		if (ph->p_type != ELF_PROG_LOAD)
+			continue;
+		// 分配物理页并映射
+		region_alloc(e, (void *)ph->p_va, ph->p_memsz);
+		// 写内容至va
+		// 这里要注意，必须切换成该进程的页目录
+		uint8_t *src = binary + ph->p_offset;
+		uint8_t *dst = (uint8_t *) ph->p_va;
+		uint32_t i;
+		uint32_t sz = ph->p_filesz;
+		for (i = 0; i < sz; i++, src++, dst++)
+			*dst = *src;
+		// 并将没写完的内存set 0 
+		for (; i < ph->p_memsz; i++, dst++)
+			*dst = 0;
+	}
+	// 改回kern_pgdir，毕竟现在是内核正在运行
+	lcr3(PADDR(kern_pgdir));
+	// set 程序入口
+	e->env_tf.tf_eip = elf_p->e_entry;
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
 
 	// LAB 3: Your code here.
+	// 分配一页
+	struct PageInfo *p = page_alloc(ALLOC_ZERO);
+	if (!p)
+		panic("Out of memory!\n");
+	if (page_insert(e->env_pgdir, p, (void *)USTACKTOP-PGSIZE, PTE_W | PTE_U) == -E_NO_MEM)
+		panic("Out of memory!\n");
 }
 
 //
@@ -353,9 +432,15 @@ void
 env_create(uint8_t *binary, enum EnvType type)
 {
 	// LAB 3: Your code here.
-
+	struct Env *e;
+	int rtv = env_alloc(&e, 0);
+	if (rtv < 0)
+		panic("env_create: %e", rtv);
+	load_icode(e, binary);
+	e->env_type = type;
 	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
 	// LAB 5: Your code here.
+	
 }
 
 //
@@ -486,7 +571,22 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 
 	// LAB 3: Your code here.
-
-	panic("env_run not yet implemented");
+	if (curenv) {
+		// 修改待切换进程状态
+		if (curenv->env_status == ENV_RUNNING)
+			curenv->env_status = ENV_RUNNABLE;
+		// 为什么不保存该进程当前上下文？？
+		// 因为上下文切换是系统调用，自动在上下文切换时
+		// 保存上下文至env_tf了。
+	}
+	curenv = e;
+	curenv->env_status = ENV_RUNNING;
+	curenv->env_runs++;
+	lcr3(PADDR(curenv->env_pgdir));
+	// release lock of kernel
+	unlock_kernel();
+	// switch to user mode
+	env_pop_tf(&curenv->env_tf);
+	//panic("env_run not yet implemented");
 }
 

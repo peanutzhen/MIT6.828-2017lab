@@ -13,7 +13,6 @@ void
 umain(int argc, char **argv)
 {
 	envid_t who;
-
 	if ((who = fork()) == 0) {
 		// Child
 		ipc_recv(&who, TEMP_ADDR_CHILD, 0);
