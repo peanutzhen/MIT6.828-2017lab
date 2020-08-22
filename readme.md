@@ -12,6 +12,7 @@
 4. [Lab3](https://zhuanlan.zhihu.com/p/170162501)
 5. [Lab4 PartA](https://zhuanlan.zhihu.com/p/184732745)
 6. [Lab4 PartB](https://zhuanlan.zhihu.com/p/188511374)
+7. [Lab4 PartC](https://zhuanlan.zhihu.com/p/194157727)
 
 ## 使用教程
 
