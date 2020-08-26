@@ -149,8 +149,48 @@ fs_init(void)
 static int
 file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool alloc)
 {
-       // LAB 5: Your code here.
-       panic("file_block_walk not implemented");
+    // LAB 5: Your code here.
+	// 目的：获取文件f第filebno块的盘块号。
+	assert(filebno >= 0);
+	int rtv = 0;
+	if (filebno < NDIRECT)
+	{
+		*ppdiskbno = &(f->f_direct[filebno]);
+		return 0;
+	}
+	else if (filebno < NDIRECT + NINDIRECT)
+	{
+		if (f->f_indirect == 0)	// need alloc.
+		{
+			if(alloc)
+			{
+				if((rtv = alloc_block()) < 0)
+					return rtv;
+				else
+				{
+					f->f_indirect = rtv;
+					uint32_t *addr = (uint32_t *)diskaddr(f->f_indirect);
+					// 我们alloc的这个盘块可能有之前的垃圾值
+					// 所以必须清洗它，然后再投入使用
+					memset(addr, 0, BLKSIZE);
+					flush_block(addr);
+					*ppdiskbno = addr + (filebno - NDIRECT);
+					return 0;
+				}
+			}
+			else
+				return -E_NOT_FOUND;
+		}
+		else
+		{
+			uint32_t *addr = (uint32_t *)diskaddr(f->f_indirect);
+			*ppdiskbno = addr + (filebno - NDIRECT);
+			return 0;
+		}
+		
+	}
+	else
+		return -E_INVAL;
 }
 
 // Set *blk to the address in memory where the filebno'th
@@ -165,7 +205,25 @@ int
 file_get_block(struct File *f, uint32_t filebno, char **blk)
 {
        // LAB 5: Your code here.
-       panic("file_get_block not implemented");
+	// 目的：获取文件第filebno块的起始地址
+	uint32_t *pdiskbno;
+	int r;
+	assert(filebno >= 0);
+	if (filebno < NDIRECT + NINDIRECT)
+	{
+		if ((r = file_block_walk(f, filebno, &pdiskbno, true)) < 0)
+			return r;
+		if (*pdiskbno == 0)
+		{
+			if ((r = alloc_block()) < 0)
+				return r;
+			*pdiskbno = (uint32_t)r;
+		}
+		*blk = (char *)diskaddr(*pdiskbno);
+		return 0;
+	}
+	else
+		return -E_INVAL;
 }
 
 // Try to find a file named "name" in dir.  If so, set *file to it.
