@@ -62,8 +62,23 @@ alloc_block(void)
 	// super->s_nblocks blocks in the disk altogether.
 
 	// LAB 5: Your code here.
-	panic("alloc_block not implemented");
-	return -E_NO_DISK;
+	// 找free block
+	uint32_t blockno = 3; 
+	while (blockno < super->s_nblocks)
+	{
+		if (block_is_free(blockno))
+			break;
+		blockno++;
+	}
+	if (blockno == super->s_nblocks)
+		return -E_NO_DISK;
+	
+	// 修改bitmap 0 alloc 1 free
+	bitmap[blockno/32] &= ~(1<<(blockno%32));
+	// 写回磁盘
+	flush_block(bitmap);
+	// return
+	return (int)blockno;
 }
 
 // Validate the file system bitmap.
