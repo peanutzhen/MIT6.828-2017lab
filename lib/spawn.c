@@ -302,6 +302,26 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 5: Your code here.
+	void *addr = 0;
+	int max_page_num = PGNUM(~0);
+	int perm;
+	int share_perm = PTE_P | PTE_SHARE;
+	int r;
+
+	// 复制每个共享页映射至子进程
+	for (int i = 0; i <= max_page_num; i++, addr += PGSIZE) {
+		// 跳过不存在的映射
+		if (!(uvpd[PDX((uintptr_t)addr)] & PTE_P))
+   			continue;
+		// 必须有映射且是共享映射！
+		perm = uvpt[PGNUM((uintptr_t)addr)] & 0xFFF;
+    	if ((perm & share_perm) == share_perm)
+		{
+			r = sys_page_map(0, addr, child, addr, perm & PTE_SYSCALL);
+			if (r < 0)
+				panic("cpoy shared page failed with %e\n", r);
+		}
+	}
 	return 0;
 }
 

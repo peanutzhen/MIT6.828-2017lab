@@ -114,17 +114,23 @@ duppage(envid_t envid, unsigned pn)
 	int ro_perm = PTE_U | PTE_P;
 	int cow_perm = ro_perm | PTE_COW;
 
-			// if 可写 或 写时复制 page
-	if ((perm & PTE_W) || (perm & PTE_COW)) {
+	// 共享页面
+	if (perm & PTE_SHARE) {
+		if ((r = sys_page_map(0, addr, envid, addr, perm & PTE_SYSCALL)) < 0)
+			panic("map failed with %e\n", r);
+	}
+	// if 可写 或 写时复制 page
+	else if ((perm & PTE_W) || (perm & PTE_COW)) {
 		if ((r = sys_page_map(0, addr, envid, addr, cow_perm)) < 0)
-			panic("map failed with %d\n", r);
+			panic("map failed with %e\n", r);
 		// 修改回父进程的权限，使其没有PTE_W，但必须有PTE_COW
 		if ((r = sys_page_map(0, addr, 0, addr, cow_perm)) < 0)
-			panic("remap failed with %d\n", r);
+			panic("remap failed with %e\n", r);
 	}
-	else {	// 只读页面
+	// 只读页面
+	else {
 		if ((r = sys_page_map(0, addr, envid, addr, ro_perm)) < 0)
-			panic("map failed with %d\n", r);
+			panic("map failed with %e\n", r);
 	}
 
 	return 0;
